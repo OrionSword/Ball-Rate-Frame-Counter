@@ -58,18 +58,10 @@ def video_frame_by_frame(video_frames, json_data):
         elif key == ord('m'): #NEXT FRAME
             if current_frame_pos < frame_count - 1:
                 current_frame_pos += 1
-            
-            current_frame_img = video_frames[current_frame_pos]
-            frame_with_text = add_frame_text(current_frame_img, json_data, current_frame_pos, current_alliance, current_mode, current_ball_group_name)
-            cv2.imshow("Video Playback", frame_with_text)
 
         elif key == ord('n'): #PREVIOUS FRAME
             if current_frame_pos > 0:
                 current_frame_pos -= 1
-            
-            current_frame_img = video_frames[current_frame_pos]
-            frame_with_text = add_frame_text(current_frame_img, json_data, current_frame_pos, current_alliance, current_mode, current_ball_group_name)
-            cv2.imshow("Video Playback", frame_with_text)
         
         elif key == ord('b'): #TOGGLE ALLIANCE
             if current_alliance == "red_alliance":
@@ -89,31 +81,23 @@ def video_frame_by_frame(video_frames, json_data):
         elif key == ord('d'): #SWITCH TO NEXT BALL GROUP
             current_ball_group = (current_ball_group + 1) % len(BALL_GROUP_NAMES) #wrap around
             current_ball_group_name = BALL_GROUP_NAMES[current_ball_group_num]
-
-            current_frame_img = video_frames[current_frame_pos]
-            frame_with_text = add_frame_text(current_frame_img, json_data, current_frame_pos, current_alliance, current_mode, current_ball_group_name)
         
         elif key == ord('a'): #SWITCH TO PREVIOUS BALL GROUP
             current_ball_group = (current_ball_group - 1) % len(BALL_GROUP_NAMES) #wrap around
             current_ball_group_name = BALL_GROUP_NAMES[current_ball_group_num]
-
-            current_frame_img = video_frames[current_frame_pos]
-            frame_with_text = add_frame_text(current_frame_img, json_data, current_frame_pos, current_alliance, current_mode, current_ball_group_name)
         
         elif key == ord('w'): #INCREASE BALL COUNT
             new_count = json_data["frame_data"][current_frame_pos][current_alliance][current_mode][current_ball_group_name] + 1
             json_data["frame_data"][current_frame_pos][current_alliance][current_mode][current_ball_group_name] = new_count
-
-            current_frame_img = video_frames[current_frame_pos]
-            frame_with_text = add_frame_text(current_frame_img, json_data, current_frame_pos, current_alliance, current_mode, current_ball_group_name)
         
         elif key == ord('w'): #DECREASE BALL COUNT
             new_count = json_data["frame_data"][current_frame_pos][current_alliance][current_mode][current_ball_group_name] - 1
             if new_count >= 0:
                 json_data["frame_data"][current_frame_pos][current_alliance][current_mode][current_ball_group_name] = new_count
 
-            current_frame_img = video_frames[current_frame_pos]
-            frame_with_text = add_frame_text(current_frame_img, json_data, current_frame_pos, current_alliance, current_mode, current_ball_group_name)
+        current_frame_img = video_frames[current_frame_pos]
+        frame_with_text = add_frame_text(current_frame_img, json_data, current_frame_pos, current_alliance, current_mode, current_ball_group_name)
+        cv2.imshow("Video Playback", frame_with_text)
 
 
     cv2.destroyAllWindows()
@@ -127,22 +111,25 @@ def add_frame_text(frame, json_data, frame_num, alliance, mode, ball_group_name)
     current_time = (frame_num - match_start_frame) * frame_time
 
     font = cv2.FONT_HERSHEY_SIMPLEX
-    start_offset = 30
-    row_height = 50
+    font_scale = 0.25
+    start_offset = 10
+    row_height = 12
+
+    frame_copy = frame.copy()
 
     text = f"Frame: {frame_num}/{json_data["frame_count"]} [m/n]"
-    cv2.putText(frame, text, (10, start_offset + 0 * row_height), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+    cv2.putText(frame_copy, text, (10, start_offset + 0 * row_height), font, font_scale, (255, 255, 255), 2, cv2.LINE_AA)
 
     text = f"Estimated Match Time: {current_time:.2f}s [t]"
-    cv2.putText(frame, text, (10, start_offset + 1 * row_height), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
+    cv2.putText(frame_copy, text, (10, start_offset + 1 * row_height), font, font_scale, (255, 255, 255), 2, cv2.LINE_AA)
 
     text = "Alliance: Red [b]" if alliance == "red_alliance" else "Alliance: Blue [b]"
     color = (0,0,255) if alliance == "red_alliance" else (255,0,0)
-    cv2.putText(frame, text, (10, start_offset + 2 * row_height), font, 1, color, 2, cv2.LINE_AA)
+    cv2.putText(frame_copy, text, (10, start_offset + 2 * row_height), font, font_scale, color, 2, cv2.LINE_AA)
 
     text = "Mode: Balls Entering [v]" if alliance == "balls_entering" else "Mode: Balls Leaving [v]"
     color = (0,255,0) if mode == "balls_entering" else (0,255,255)
-    cv2.putText(frame, text, (10, start_offset + 3 * row_height), font, 1, color, 2, cv2.LINE_AA)
+    cv2.putText(frame_copy, text, (10, start_offset + 3 * row_height), font, font_scale, color, 2, cv2.LINE_AA)
 
     for i in range(len(BALL_GROUP_NAMES)):
         curr_group_name = BALL_GROUP_NAMES[i]
@@ -151,9 +138,9 @@ def add_frame_text(frame, json_data, frame_num, alliance, mode, ball_group_name)
         row = 5 + i
         text = f"{curr_ball_data[curr_group_name]} - " + curr_group_name
         color = (0,255,255) if curr_group_name == ball_group_name else (255,255,255)
-        cv2.putText(frame, text, (10, start_offset + row * row_height), font, 1, color, 2, cv2.LINE_AA)
+        cv2.putText(frame_copy, text, (10, start_offset + row * row_height), font, font_scale, color, 2, cv2.LINE_AA)
 
-    return frame
+    return frame_copy
 
 def json_filename_from_video(filename):
     segments = filename.split(".")
@@ -185,7 +172,9 @@ def open_and_parse_files(folder_path, filename):
         updateString = "\t\tLoading frame "+str(count)+"/"+str(frame_count)+"..."
         print(updateString.ljust(40," "),end="\r")
 
-        video_frames.append(frame)
+        small_frame = cv2.resize(frame, None, fx=0.25, fy=0.25, interpolation=cv2.INTER_AREA)
+        video_frames.append(small_frame)
+
         success, frame = cap.read()
         count += 1
     
@@ -205,7 +194,7 @@ def open_and_parse_files(folder_path, filename):
     cap.release()
 
     if path.isfile(json_path): #file was parsed before, open the existing json data
-        with open('data.json', 'r') as file:
+        with open(json_path, 'r') as file:
             json_data = json.load(file)
     else: #create blank data for the video and save it to a new file
         blank_ball_data = {x : 0 for x in BALL_GROUP_NAMES}
