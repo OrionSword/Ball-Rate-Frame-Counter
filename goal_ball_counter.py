@@ -1,11 +1,33 @@
 import cv2
+from os import path
+import json
 
 print("OpenCV version: " + cv2.__version__)
 
-# Replace 'your_video_file.mp4' with the path to your video file
-VIDEO_FILE_PATH = "C:\\Users\\orion\\Videos\\2026 Robot\\20260214_162654.mp4"
+VIDEO_FOLDER_PATH = "C:\\Users\\orion\\Videos\\2026 Week 0\\"
+VIDEO_FILENAME = "20260221_101139.mp4"
 
-def video_frame_by_frame(video_path):
+BALL_GROUP_NAMES = [
+        "Fuel, Standard",
+        "Fuel, Striped Black",
+        "Fuel, Striped Green",
+        "Fuel, Striped Red",
+        "Fuel, Dots Black",
+        "Fuel, Dots Green",
+        "Fuel, Dots Red",
+        "Fuel, Circles Black",
+        "Fuel, Circles Green",
+        "Fuel, Circles Red",
+        "Fuel, Quarters Black",
+        "Fuel, Quarters Green",
+        "Fuel, Quarters Red",
+        "Fuel, Black Dots with Green",
+        "Fuel, Black Dots with Red",
+    ]
+
+def video_frame_by_frame(folder_path, filename):
+    video_path = folder_path + filename
+
     cap = cv2.VideoCapture(video_path)
 
     if not cap.isOpened():
@@ -102,66 +124,47 @@ def add_frame_text(frame, frame_num, ball_count, ball_flag):
 
     return frame
 
-def ball_analysis(fps, frame_flags):
-
-    print("\nStarting analysis...")
-
-    frame_time = 1.0/fps
-    frame_count = len(frame_flags)
-    ball_count = frame_flags.count(True)
-
-    last_flag_frame_number = -1
-    gap_times = []
-
-    #count the frame spacing for each "true" flagged frame and calculate time spacing
-    for i in range(frame_count):
-        frame_flag = frame_flags[i]
-
-        if frame_flag:
-            if last_flag_frame_number != -1: #have we detected at least one other ball before (otherwise all this is meaningless)
-                gap_frames = i - last_flag_frame_number
-                gap_time = frame_time * gap_frames #assumes constant frame rate
-                gap_times.append(gap_time)
-            last_flag_frame_number = i
+def json_filename_from_video(filename):
+    segments = filename.split(".")
+    if (len(segments) != 2):
+        raise Exception("The name of the file is invalid and can't be parsed.  It should only have a single period with a valid name and file extension.")
     
-    #track the cumulative time for groups of balls of sizes ranging from 1 (encoded as 0) to the total number of balls (minus 1)
-    shortest_group_times = [1e+10 for x in range(ball_count-1)] #gap timnes will be 1 less than ball count since this is 0-based
-    current_group_times = []
+    return segments[0] + ".json"
 
-    for i in range(ball_count - 1):
-        gap_time = gap_times[i]
-        if i == 0:
-            current_group_times = [gap_time]
-        else:
-            current_group_times = [g + gap_time for g in current_group_times]
-            current_group_times.insert(0, gap_time) #list grows longer as we encounter more balls
-        
-        for j in range(i+1):
-            if current_group_times[j] < shortest_group_times[j]:
-                shortest_group_times[j] = current_group_times[j]
-    
-    #print ball timings
-    print("\nBALL GAPS:")
-    print("Ball 0:  0.000s (0.0bps)")
-    for i in range(len(gap_times)):
-        index = i + 1
-        gap_time = gap_times[i]
-        bps = 1/gap_time
-        print(f"Ball {index}:  {gap_time:.3f}s ({bps:.1f}bps)")
-    
-    #print shortest group times
-    print("\nSHORTEST TIME TO LAUNCH N BALLS:")
-    for i in range(len(shortest_group_times)):
-        group_size = i + 1
-        group_time = shortest_group_times[i]
-        group_bps = group_size / group_time
-        print(f"N={group_size}:  {group_time:.3f}s ({group_bps:.1f}bps)")
+def open_and_parse_files(folder_path, filename):
+    video_path = folder_path + filename
+    json_path = folder_path + json_filename_from_video(filename)
 
-    return
+    cap = cv2.VideoCapture(video_path)
+
+    if not cap.isOpened():
+        print(f"Error: Could not open video file {video_path}")
+        return
+
+    json_data = {}
+    video_frames = []
+
+    #Loop through all frames until the video ends
+    success, frame = cap.read() #Read the first frame
+    while success:
+        video_frames.append(frame)
+        success, frame = cap.read()
+    
+    json_data["frame_count"] = len(video_frames)
+    json_data["fps"] = cap.get(cv2.CAP_PROP_FPS)
+    json_data["match_start_frame"] = 0
+    
+    # Release the video capture object and destroy all windows
+    cap.release()
+
+    if path.isfile(json_path): #file was parsed before, open the existing json data
+        with open('data.json', 'r') as file:
+            json_data = json.load(file)
+    else: #create blank data for the video and save it to a new file
+        pass
+
 
 if __name__ == "__main__":
     
-    fps, frame_flags = video_frame_by_frame(VIDEO_FILE_PATH)
-
-    ball_analysis(fps, frame_flags)
+    fps, frame_flags = video_frame_by_frame(VIDEO_FOLDER_PATH, VIDEO_FILENAME)
 
