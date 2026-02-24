@@ -4,8 +4,10 @@ import json
 
 print("OpenCV version: " + cv2.__version__)
 
-VIDEO_FOLDER_PATH = "C:\\Users\\odeyoe\\Videos\\2026 Week 0\\"
-VIDEO_FILENAME = "20260221_101139.mp4"
+VIDEO_FOLDER_PATH = "C:\\Users\\odeyoe\\Videos\\2026 Week 0\\Red Hub\\"
+VIDEO_FILENAME = "Match 6 Red.mp4"
+
+PREVIEW_SCALE = 1.0
 
 BALL_GROUP_NAMES = [
         "Fuel, Standard",
@@ -45,8 +47,12 @@ def video_frame_by_frame(cap, json_data):
     current_ball_group_name = BALL_GROUP_NAMES[current_ball_group_num]
 
     ret, frame = cap.read()
-    current_frame_img = frame
+    current_frame_img = cv2.resize(frame, (0, 0), fx=PREVIEW_SCALE, fy=PREVIEW_SCALE, interpolation=cv2.INTER_AREA)
     current_frame_pos = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
+
+    frame_buffer = [current_frame_img]
+    frame_buffer_pos = 0
+    need_pos_reset = False
 
     frame_with_text = add_frame_text(current_frame_img, json_data, current_frame_pos, current_alliance, current_mode, current_ball_group_name)
     cv2.imshow("Video Playback", frame_with_text)
@@ -59,19 +65,46 @@ def video_frame_by_frame(cap, json_data):
             break
 
         elif key == ord('m'): #NEXT FRAME
-            ret, frame = cap.read()
-            if ret:
-                current_frame_img = frame
-                current_frame_pos = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
+            if frame_buffer_pos != len(frame_buffer) - 1: #if we're not at the end of the frame buffer
+                frame_buffer_pos += 1
+                current_frame_pos += 1
+                current_frame_img = frame_buffer[frame_buffer_pos]
+                
+            else:
+                if need_pos_reset:
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, current_frame_pos + 1)
+                    need_pos_reset = False
+                ret, frame = cap.read()
+                if ret:
+                    current_frame_img = cv2.resize(frame, (0, 0), fx=PREVIEW_SCALE, fy=PREVIEW_SCALE, interpolation=cv2.INTER_AREA)
+                    current_frame_pos = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
+                    frame_buffer.append(current_frame_img)
+                    frame_buffer_pos += 1
+                    if len(frame_buffer) > 250:
+                        frame_buffer.pop(0)
+                        frame_buffer_pos -= 1
 
         elif key == ord('n'): #PREVIOUS FRAME
             if current_frame_pos > 0:
-                cap.set(cv2.CAP_PROP_POS_FRAMES, current_frame_pos - 1) 
-                ret, frame = cap.read()
-                if ret:
-                    current_frame_img = frame
-                    current_frame_pos = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
+                if frame_buffer_pos > 0:
+                    frame_buffer_pos -= 1
+                    current_frame_pos -= 1
+                    current_frame_img = frame_buffer[frame_buffer_pos]
+                else:
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, current_frame_pos - 1)
+                    need_pos_reset = True
+                    ret, frame = cap.read()
+                    if ret:
+                        current_frame_img = cv2.resize(frame, (0, 0), fx=PREVIEW_SCALE, fy=PREVIEW_SCALE, interpolation=cv2.INTER_AREA)
+                        current_frame_pos = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
+                        frame_buffer.insert(0, current_frame_img) #not going to shorten the buffer in this case to simplify things
         
+        elif key == ord('p'): #FORWARD ~5sec
+            pass
+
+        elif key == ord('o'): #BACKWARD ~5sec
+            pass
+
         elif key == ord('b'): #TOGGLE ALLIANCE
             if current_alliance == "red_alliance":
                 current_alliance = "blue_alliance"
@@ -124,7 +157,7 @@ def add_frame_text(frame, json_data, frame_num, alliance, mode, ball_group_name)
     start_offset = 40
     row_height = 50
 
-    frame_copy = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA) #frame.copy()
+    frame_copy = frame.copy()
 
     text = f"Frame: {frame_num}/{json_data["frame_count"]} [m/n]"
     cv2.putText(frame_copy, text, (10, start_offset + 0 * row_height), font, font_scale, (255, 255, 255), 2, cv2.LINE_AA)
