@@ -68,7 +68,7 @@ class VideoLoader:
         self.frame_height, self.frame_width, _ = self.current_frame_img.shape
 
         #derived values
-        self.block_size = max(1, round(self.fps))
+        self.block_size = max(1, round(self.fps*5.0))
         self.video_length_blocks = math.ceil(self.video_length_frames / self.block_size)
         self.video_length_seconds = self.video_length_frames / self.fps
         self.current_pos_seconds = self.current_pos_frames / self.fps
@@ -214,6 +214,7 @@ class VideoLoader:
 
     #ASYNCHRONOUS FUNCTIONS
     def _load_previews(self):
+        time.sleep(0.5)
         with self.previews_lock:
             self.previews = []
             with self.cap_lock:
